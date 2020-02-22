@@ -105,7 +105,7 @@ public:
     void init();
     String getModuleName() { return F("zinguo"); }
     String getModuleCNName() { return F("峥果浴霸"); }
-    String getModuleVersion() { return F("2020.02.13.1200"); }
+    String getModuleVersion() { return F("2020.02.22.1000"); }
     String getModuleAuthor() { return F("情留メ蚊子"); }
     bool moduleLed() { return false; }
 
