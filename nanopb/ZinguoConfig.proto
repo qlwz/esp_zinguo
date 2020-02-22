@@ -1,0 +1,17 @@
+
+syntax = "proto3";
+
+import "nanopb.proto";
+
+message ZinguoConfigMessage {
+	bool dual_motor = 1;
+	bool dual_warm = 2;
+	uint32 delay_blow = 3 [(nanopb).int_size = IS_8];
+	uint32 linkage = 4 [(nanopb).int_size = IS_8];
+	uint32 max_temp = 5 [(nanopb).int_size = IS_8];
+	uint32 close_warm = 6 [(nanopb).int_size = IS_8];
+	uint32 close_ventilation = 7 [(nanopb).int_size = IS_8];
+	bool beep = 8;
+	bool reverse_led = 9;
+	uint32 report_interval = 10 [(nanopb).int_size = IS_16];
+}
