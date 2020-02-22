@@ -26,40 +26,6 @@
 - [x] 通过MQTT连入Home Assistant
 
 
-## 拆机接线及烧录固件相关
-
-### 接线方法
-
-![image](https://github.com/qlwz/esp_zinguo/blob/master/file/flash/wiring_diagram.png?raw=true)
-
-刷机定义，有问题互换TX RX
-
-### 工具/固件下载
-
-确认硬件连接正常后,下载以下软件:
-
-烧录软件: flash_download_tools_vX.zip	[点这里下载](https://www.espressif.com/zh-hans/support/download/other-tools)
-
-完整固件: zinguo.bin	[点这里下载](https://github.com/qlwz/esp_zinguo/releases)
-
-### 开始烧录
-
-将flash_download_tools_vX.zip解压,打开目录下的flash_download_tools_vX.exe,选择ESP8266 DownloadTool,根据以下截图做配置,
-
-![image](https://github.com/qlwz/esp_dc1/blob/master/file/flash/flash1.png?raw=true)
-
-将与主控板连接的usbTTL连接上电脑(确保主控io0必需短接gnd后再上电,以进入刷机模式),根据自己的实际串口号设置.,点击START按钮即可开始烧录.
-
-
-稍等片刻,出现![FINISH_S](https://github.com/qlwz/esp_dc1/blob/master/file/flash/FINISH_S.bmp?raw=true)即为烧录超过
-
-
-注意:部分发现烧录完成后可能出现问题无法使用.可以尝试用以上烧录软件ERASE擦除一次后重新烧录.
-
-进入烧录模式后点ERASE,显示完成即为擦除超过.再将主控板重新上电并再次进入刷机模式,重新点START烧录即可
-
-
-
 ## 如何配网
 
 1、第一次使用自动进入配网模式
@@ -100,6 +66,42 @@ ioBroker相关接入问题可以加QQ群776817275咨询
 ![image](https://github.com/qlwz/esp_zinguo/blob/master/file/images/tab2.png?raw=true)
 ![image](https://github.com/qlwz/esp_zinguo/blob/master/file/images/tab3.png?raw=true)
 ![image](https://github.com/qlwz/esp_zinguo/blob/master/file/images/tab4.png?raw=true)
+
+
+
+## 拆机接线及烧录固件相关
+
+### 接线方法
+
+![image](https://github.com/qlwz/esp_zinguo/blob/master/file/flash/wiring_diagram.png?raw=true)
+
+刷机定义，有问题互换TX RX
+
+### 工具/固件下载
+
+确认硬件连接正常后,下载以下软件:
+
+烧录软件: flash_download_tools_vX.zip	[点这里下载](https://www.espressif.com/zh-hans/support/download/other-tools)
+
+完整固件: zinguo.bin	[点这里下载](https://github.com/qlwz/esp_zinguo/releases)
+
+### 开始烧录
+
+将flash_download_tools_vX.zip解压,打开目录下的flash_download_tools_vX.exe,选择ESP8266 DownloadTool,根据以下截图做配置,
+
+![image](https://github.com/qlwz/esp_dc1/blob/master/file/flash/flash1.png?raw=true)
+
+将与主控板连接的usbTTL连接上电脑(确保主控io0必需短接gnd后再上电,以进入刷机模式),根据自己的实际串口号设置.,点击START按钮即可开始烧录.
+
+
+稍等片刻,出现![FINISH_S](https://github.com/qlwz/esp_dc1/blob/master/file/flash/FINISH_S.bmp?raw=true)即为烧录超过
+
+
+注意:部分发现烧录完成后可能出现问题无法使用.可以尝试用以上烧录软件ERASE擦除一次后重新烧录.
+
+进入烧录模式后点ERASE,显示完成即为擦除超过.再将主控板重新上电并再次进入刷机模式,重新点START烧录即可
+
+
 
 ## 致谢
 以下排名不分先后，为随机。
