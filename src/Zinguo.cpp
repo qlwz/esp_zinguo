@@ -66,7 +66,7 @@ void Zinguo::loop()
         {
             controlLED &= ~(1 << 2);
             controlOut &= ~(1 << 2);
-            Mqtt::publish(Mqtt::getStatTopic("close"), "OFF", globalConfig.mqtt.retain);
+            Mqtt::publish(Mqtt::getStatTopic("close"), "off", globalConfig.mqtt.retain);
         }
 #endif
 
@@ -150,27 +150,27 @@ void Zinguo::mqttCallback(String topicStr, String str)
 {
     if (topicStr.endsWith("/light"))
     {
-        switchLight(str == "ON" ? true : (str == "OFF" ? false : !bitRead(controlOut, KEY_LIGHT - 1)));
+        switchLight(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_LIGHT - 1)));
     }
     else if (topicStr.endsWith("/ventilation"))
     {
-        switchVentilation(str == "ON" ? true : (str == "OFF" ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
+        switchVentilation(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
     }
     else if (topicStr.endsWith("/close"))
     {
-        switchCloseAll(str == "ON" ? true : (str == "OFF" ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
+        switchCloseAll(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
     }
     else if (topicStr.endsWith("/warm2"))
     {
-        switchWarm2(str == "ON" ? true : (str == "OFF" ? false : !bitRead(controlOut, KEY_WARM_2 - 1)));
+        switchWarm2(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_WARM_2 - 1)));
     }
     else if (topicStr.endsWith("/blow"))
     {
-        switchBlow(str == "ON" ? true : (str == "OFF" ? false : !bitRead(controlOut, KEY_BLOW - 1)));
+        switchBlow(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_BLOW - 1)));
     }
     else if (topicStr.endsWith("/warm1"))
     {
-        switchWarm1(str == "ON" ? true : (str == "OFF" ? false : !bitRead(controlOut, KEY_WARM_1 - 1)));
+        switchWarm1(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_WARM_1 - 1)));
     }
     else if (topicStr.endsWith("/temp"))
     {
@@ -411,7 +411,7 @@ void Zinguo::httpHa(ESP8266WebServer *server)
         server->sendContent(Mqtt::getStatTopic(tims[i]));
         server->sendContent(F("\"\r\n    command_topic: \""));
         server->sendContent(Mqtt::getCmndTopic(tims[i]));
-        server->sendContent(F("\"\r\n    payload_on: \"ON\"\r\n    payload_off: \"OFF\"\r\n    availability_topic: \""));
+        server->sendContent(F("\"\r\n    payload_on: \"on\"\r\n    payload_off: \"off\"\r\n    availability_topic: \""));
         server->sendContent(availability);
         server->sendContent(F("\"\r\n    payload_available: \"online\"\r\n    payload_not_available: \"offline\"\r\n\r\n"));
     }
@@ -651,7 +651,7 @@ void Zinguo::switchLight(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("light"), isOn ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("light"), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 换气 Key2
@@ -675,7 +675,7 @@ void Zinguo::switchVentilation(bool isOn, bool isBeep)
                 {
                     beepBeep(2);
                 }
-                Mqtt::publish(Mqtt::getStatTopic("ventilation"), bitRead(controlOut, KEY_VENTILATION - 1) ? "ON" : "OFF", globalConfig.mqtt.retain);
+                Mqtt::publish(Mqtt::getStatTopic("ventilation"), bitRead(controlOut, KEY_VENTILATION - 1) ? "on" : "off", globalConfig.mqtt.retain);
                 return;
             }
             switchBlowReal(false, false); // 单电机要关吹风
@@ -700,7 +700,7 @@ void Zinguo::switchVentilation(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("ventilation"), isOn ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("ventilation"), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 取暖1 Key8
@@ -748,7 +748,7 @@ void Zinguo::switchWarm1(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("warm1"), isOn ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("warm1"), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 取暖2 Key6
@@ -804,7 +804,7 @@ void Zinguo::switchWarm2(bool isOn, bool isBeep)
         return;
     }
 
-    Mqtt::publish(Mqtt::getStatTopic("warm2"), isOn ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("warm2"), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 吹风 Key7
@@ -835,7 +835,7 @@ void Zinguo::switchBlowReal(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("blow"), isOn ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("blow"), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 void Zinguo::switchBlow(bool isOn, bool isBeep)
@@ -883,10 +883,10 @@ void Zinguo::switchCloseAll(bool isOn, bool isBeep)
         controlOut &= ~(1 << 2);
     }
 #ifdef SkyNet
-    Mqtt::publish("cmnd/rsq/POWER", isOn ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish("cmnd/rsq/POWER", isOn ? "on" : "off", globalConfig.mqtt.retain);
 #else
     dispCtrl();
-    Mqtt::publish(Mqtt::getStatTopic("close"), isOn ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("close"), isOn ? "on" : "off", globalConfig.mqtt.retain);
     switchLight(false, false);
     switchVentilation(false, false);
     switchBlow(false, false);
@@ -902,9 +902,9 @@ void Zinguo::switchCloseAll(bool isOn, bool isBeep)
 void Zinguo::reportPower()
 {
     Mqtt::publish(Mqtt::getStatTopic("temp"), String(controlTemp).c_str(), globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("light"), bitRead(controlOut, KEY_LIGHT - 1) ? "ON" : "OFF", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("ventilation"), bitRead(controlOut, KEY_VENTILATION - 1) ? "ON" : "OFF", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("warm1"), bitRead(controlOut, KEY_WARM_1 - 1) ? "ON" : "OFF", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("warm2"), bitRead(controlOut, KEY_WARM_2 - 1) ? "ON" : "OFF", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("blow"), bitRead(controlOut, KEY_BLOW - 1) ? "ON" : "OFF", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("light"), bitRead(controlOut, KEY_LIGHT - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("ventilation"), bitRead(controlOut, KEY_VENTILATION - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("warm1"), bitRead(controlOut, KEY_WARM_1 - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("warm2"), bitRead(controlOut, KEY_WARM_2 - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic("blow"), bitRead(controlOut, KEY_BLOW - 1) ? "on" : "off", globalConfig.mqtt.retain);
 }
