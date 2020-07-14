@@ -29,16 +29,6 @@
 #define KEY_BLOW 7        // 吹风,Q
 #define KEY_WARM_1 8      // 取暖1,R
 
-const char HASS_DISCOVER_ZINGUO[] PROGMEM =
-    "{\"name\":\"%s_%s\","
-    "\"cmd_t\":\"%s\","
-    "\"stat_t\":\"%s\","
-    "\"pl_off\":\"OFF\","
-    "\"pl_on\":\"ON\","
-    "\"avty_t\":\"%s\","
-    "\"pl_avail\":\"online\","
-    "\"pl_not_avail\":\"offline\"}";
-
 class Zinguo : public Module
 {
 private:
@@ -116,7 +106,7 @@ public:
     void resetConfig();
     void saveConfig(bool isEverySecond);
 
-    void mqttCallback(String topicStr, String str);
+    void mqttCallback(char *topic, char *payload, char *cmnd);
     void mqttConnected();
     void mqttDiscovery(bool isEnable = true);
 

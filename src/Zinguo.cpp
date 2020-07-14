@@ -33,7 +33,7 @@ void Zinguo::loop()
             {
                 if (millis() >= (buttonTimingStart + buttonDebounceTime))
                 {
-                    Debug::AddInfo("TouchKey: 0x%0X", key);
+                    Debug::AddInfo(PSTR("TouchKey: 0x%0X"), key);
                     touchKey = key; //缓冲当前按键键值
                     analysisKey(touchKey);
                 }
@@ -66,7 +66,7 @@ void Zinguo::loop()
         {
             controlLED &= ~(1 << 2);
             controlOut &= ~(1 << 2);
-            Mqtt::publish(Mqtt::getStatTopic("close"), "off", globalConfig.mqtt.retain);
+            Mqtt::publish(Mqtt::getStatTopic(F("close")), "off", globalConfig.mqtt.retain);
         }
 #endif
 
@@ -91,14 +91,14 @@ void Zinguo::loop()
 
         if (ventilationTime != 0 && ventilationTime <= perSecond)
         {
-            Debug::AddInfo("Ventilation Timeout %d %d", ventilationTime, perSecond);
+            Debug::AddInfo(PSTR("Ventilation Timeout %d %d"), ventilationTime, perSecond);
             ventilationTime = 0;
             switchVentilation(false);
         }
 
         if (warmTime != 0 && warmTime <= perSecond)
         {
-            Debug::AddInfo("Warm Timeout %d %d", warmTime, perSecond);
+            Debug::AddInfo(PSTR("Warm Timeout %d %d"), warmTime, perSecond);
             warmTime = 0;
             switchWarm1(false);
             switchWarm2(false);
@@ -146,44 +146,44 @@ void Zinguo::saveConfig(bool isEverySecond)
 
 #pragma region MQTT
 
-void Zinguo::mqttCallback(String topicStr, String str)
+void Zinguo::mqttCallback(char *topic, char *payload, char *cmnd)
 {
-    if (topicStr.endsWith("/light"))
+    if (strcmp(cmnd, "light") == 0)
     {
-        switchLight(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_LIGHT - 1)));
+        switchLight(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_LIGHT - 1)));
     }
-    else if (topicStr.endsWith("/ventilation"))
+    else if (strcmp(cmnd, "ventilation") == 0)
     {
-        switchVentilation(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
+        switchVentilation(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
     }
-    else if (topicStr.endsWith("/close"))
+    else if (strcmp(cmnd, "close") == 0)
     {
-        switchCloseAll(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
+        switchCloseAll(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
     }
-    else if (topicStr.endsWith("/warm2"))
+    else if (strcmp(cmnd, "warm2") == 0)
     {
-        switchWarm2(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_WARM_2 - 1)));
+        switchWarm2(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_WARM_2 - 1)));
     }
-    else if (topicStr.endsWith("/blow"))
+    else if (strcmp(cmnd, "blow") == 0)
     {
-        switchBlow(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_BLOW - 1)));
+        switchBlow(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_BLOW - 1)));
     }
-    else if (topicStr.endsWith("/warm1"))
+    else if (strcmp(cmnd, "warm1") == 0)
     {
-        switchWarm1(str == "on" ? true : (str == "off" ? false : !bitRead(controlOut, KEY_WARM_1 - 1)));
+        switchWarm1(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_WARM_1 - 1)));
     }
-    else if (topicStr.endsWith("/temp"))
+    else if (strcmp(cmnd, "temp") == 0)
     {
         mqttTemp = true;
-        controlTemp = str.toFloat();
-        Mqtt::publish(Mqtt::getStatTopic("temp"), str.c_str(), globalConfig.mqtt.retain);
+        controlTemp = atof(payload);
+        Mqtt::publish(Mqtt::getStatTopic(F("temp")), payload, globalConfig.mqtt.retain);
         if (controlTemp >= config.max_temp)
         {
             switchWarm1(false);
             switchWarm2(false);
         }
     }
-    else if (topicStr.endsWith("/report"))
+    else if (strcmp(cmnd, "report") == 0)
     {
         reportPower();
     }
@@ -203,14 +203,23 @@ void Zinguo::mqttDiscovery(bool isEnable)
     char topic[100];
     char message[500];
 
-    String tims[] = {"light", "ventilation", "close", "blow", "warm1", "warm2"};
+    String tims[] = {F("light"), F("ventilation"), F("close"), F("blow"), F("warm1"), F("warm2")};
 
     for (size_t i = 0; i < (config.dual_warm ? 6 : 5); i++)
     {
-        sprintf(topic, "%s/%s/%s_%s/config", globalConfig.mqtt.discovery_prefix, tims[i] == "light" ? "light" : "switch", UID, tims[i].c_str());
+        sprintf(topic, PSTR("%s/%s/%s_%s/config"), globalConfig.mqtt.discovery_prefix, tims[i] == F("light") ? F("light") : F("switch"), UID, tims[i].c_str());
         if (isEnable)
         {
-            sprintf(message, HASS_DISCOVER_ZINGUO, UID, tims[i].c_str(),
+            sprintf(message,
+                    PSTR("{\"name\":\"%s_%s\","
+                         "\"cmd_t\":\"%s\","
+                         "\"stat_t\":\"%s\","
+                         "\"pl_off\":\"off\","
+                         "\"pl_on\":\"on\","
+                         "\"avty_t\":\"%s\","
+                         "\"pl_avail\":\"online\","
+                         "\"pl_not_avail\":\"offline\"}"),
+                    UID, tims[i].c_str(),
                     Mqtt::getCmndTopic(tims[i]).c_str(),
                     Mqtt::getStatTopic(tims[i]).c_str(),
                     Mqtt::getTeleTopic(F("availability")).c_str());
@@ -223,10 +232,10 @@ void Zinguo::mqttDiscovery(bool isEnable)
         }
     }
 
-    sprintf(topic, "%s/sensor/%s_temp/config", globalConfig.mqtt.discovery_prefix, UID);
+    sprintf(topic, PSTR("%s/sensor/%s_temp/config"), globalConfig.mqtt.discovery_prefix, UID);
     if (isEnable)
     {
-        sprintf(message, "{\"name\":\"%s_temp\",\"stat_t\":\"%s\",\"unit_of_meas\":\"°C\"}", UID, Mqtt::getStatTopic("temp").c_str());
+        sprintf(message, PSTR("{\"name\":\"%s_temp\",\"stat_t\":\"%s\",\"unit_of_meas\":\"°C\"}"), UID, Mqtt::getStatTopic(F("temp")).c_str());
         //Debug::AddInfo(PSTR("discovery: %s - %s"), topic, message);
         Mqtt::publish(topic, message, true);
     }
@@ -267,106 +276,126 @@ String Zinguo::httpGetStatus(ESP8266WebServer *server)
 
 void Zinguo::httpHtml(ESP8266WebServer *server)
 {
-    String radioJs = F("<script type='text/javascript'>");
-    radioJs += F("function setDataSub(data,key){if(key.substr(0,6)=='zinguo'){id(key).setAttribute('class',data[key]==1?'btn-success':'btn-info');return true}return false}");
-    String page = F("<table class='gridtable'><thead><tr><th colspan='2'>控制浴霸</th></tr></thead><tbody>");
-    page += F("<tr colspan='2' style='text-align: center'><td>");
-    page += F("<button type='button' style='width:56px' onclick=\"ajaxPost('/zinguo_do', 'key=8');\" id='zinguo_warm1' class='btn-success'>风暖1</button>");
-    page += F(" <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=7');\" id='zinguo_blow' class='btn-success'>吹风</button>");
-    page += F(" <button type='button' style='width:56px' onclick=\"ajaxPost('/zinguo_do', 'key=6');\" id='zinguo_warm2' class='btn-success'>风暖2</button>");
-    page += F(" <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=1');\" id='zinguo_light' class='btn-success'>照明</button>");
-    page += F(" <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=2');\" id='zinguo_ventilation' class='btn-success'>换气</button>");
-    page += F(" <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=3');\" id='zinguo_close' class='btn-info'>全关</button>");
-    page += F("</td></tr></tbody></table>");
+    server->sendContent_P(
+        PSTR("<table class='gridtable'><thead><tr><th colspan='2'>控制浴霸</th></tr></thead><tbody>"
+             "<tr colspan='2' style='text-align: center'><td>"
+             "<button type='button' style='width:56px' onclick=\"ajaxPost('/zinguo_do', 'key=8');\" id='zinguo_warm1' class='btn-success'>风暖1</button>"
+             " <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=7');\" id='zinguo_blow' class='btn-success'>吹风</button>"
+             " <button type='button' style='width:56px' onclick=\"ajaxPost('/zinguo_do', 'key=6');\" id='zinguo_warm2' class='btn-success'>风暖2</button>"
+             " <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=1');\" id='zinguo_light' class='btn-success'>照明</button>"
+             " <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=2');\" id='zinguo_ventilation' class='btn-success'>换气</button>"
+             " <button type='button' style='width:50px' onclick=\"ajaxPost('/zinguo_do', 'key=3');\" id='zinguo_close' class='btn-info'>全关</button>"
+             "</td></tr></tbody></table>"));
+
+    server->sendContent_P(
+        PSTR("<form method='post' action='/zinguo_setting' onsubmit='postform(this);return false'>"
+             "<table class='gridtable'><thead><tr><th colspan='2'>浴霸设置</th></tr></thead><tbody>"
+             "<tr><td>电机数量</td><td>"
+             "<label class='bui-radios-label'><input type='radio' name='dual_motor' value='0'/><i class='bui-radios'></i> 单电机</label>&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<label class='bui-radios-label'><input type='radio' name='dual_motor' value='1'/><i class='bui-radios'></i> 双电机</label>"
+             "</td></tr>"
+
+             "<tr><td>风暖数量</td><td>"
+             "<label class='bui-radios-label'><input type='radio' name='dual_warm' value='0'/><i class='bui-radios'></i> 单风暖</label>&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<label class='bui-radios-label'><input type='radio' name='dual_warm' value='1'/><i class='bui-radios'></i> 双风暖</label>"
+             "</td></tr>"
+
+             "<tr><td>吹风联动</td><td>"
+             "<label class='bui-radios-label'><input type='radio' name='linkage' value='0'/><i class='bui-radios'></i> 不联动</label><br/>"
+             "<label class='bui-radios-label'><input type='radio' name='linkage' value='1'/><i class='bui-radios'></i> 暖1或暖2联动</label><br/>"
+             "<label class='bui-radios-label'><input type='radio' name='linkage' value='2'/><i class='bui-radios'></i> 暖1联动</label><br/>"
+             "<label class='bui-radios-label'><input type='radio' name='linkage' value='3'/><i class='bui-radios'></i> 暖2联动</label>"
+             "</td></tr>"));
+
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("<tr><td>吹风延时</td><td><input type='number' min='0' max='90' name='delay_blow' required value='%d'>&nbsp;秒</td></tr>"),
+               config.delay_blow == 127 ? 0 : config.delay_blow);
+    server->sendContent_P(tmpData);
+
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("<tr><td>过温保护</td><td><input type='number' min='15' max='45' name='max_temp' required value='%d'>&nbsp;度</td></tr>"),
+               config.max_temp);
+    server->sendContent_P(tmpData);
+
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("<tr><td>取暖定时关闭</td><td><input type='number' min='1' max='90' name='close_warm' required value='%d'>&nbsp;分钟</td></tr>"),
+               config.close_warm);
+    server->sendContent_P(tmpData);
+
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("<tr><td>换气定时关闭</td><td><input type='number' min='1' max='90' name='close_ventilation' required value='%d'>&nbsp;分钟</td></tr>"),
+               config.close_ventilation);
+    server->sendContent_P(tmpData);
+
+    server->sendContent_P(
+        PSTR("<tr><td>按键声音</td><td>"
+             "<label class='bui-radios-label'><input type='radio' name='beep' value='0'/><i class='bui-radios'></i> 关闭</label>&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<label class='bui-radios-label'><input type='radio' name='beep' value='1'/><i class='bui-radios'></i> 开启</label>"
+             "</td></tr>"
+
+             "<tr><td>LED颜色</td><td>"
+             "<label class='bui-radios-label'><input type='radio' name='reverse_led' value='0'/><i class='bui-radios'></i> 待机蓝色</label>&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<label class='bui-radios-label'><input type='radio' name='reverse_led' value='1'/><i class='bui-radios'></i> 待机红色</label>"
+             "</td></tr>"));
+
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("<tr><td>主动上报间隔</td><td><input type='number' min='0' max='3600' name='report_interval' required value='%d'>&nbsp;秒，0关闭</td></tr>"),
+               config.report_interval);
+    server->sendContent_P(tmpData);
+
+    server->sendContent_P(
+        PSTR("<tr><td colspan='2'><button type='submit' class='btn-info'>设置</button><br>"
+             "<button type='button' class='btn-success' style='margin-top:10px' onclick='window.location.href=\"/ha\"'>下载HA配置文件</button></td></tr>"
+             "</tbody></table></form>"));
+
+    server->sendContent_P(
+        PSTR("<script type='text/javascript'>"
+             "function setDataSub(data,key){if(key.substr(0,6)=='zinguo'){id(key).setAttribute('class',data[key]==1?'btn-success':'btn-info');return true}return false}"));
+
     if (!bitRead(controlOut, KEY_LIGHT - 1))
     {
-        radioJs += F("id('zinguo_light').setAttribute('class', 'btn-info');");
+        server->sendContent_P(PSTR("id('zinguo_light').setAttribute('class', 'btn-info');"));
     }
     if (!bitRead(controlOut, KEY_VENTILATION - 1))
     {
-        radioJs += F("id('zinguo_ventilation').setAttribute('class', 'btn-info');");
+        server->sendContent_P(PSTR("id('zinguo_ventilation').setAttribute('class', 'btn-info');"));
     }
     if (!bitRead(controlOut, KEY_WARM_1 - 1))
     {
-        radioJs += F("id('zinguo_warm1').setAttribute('class', 'btn-info');");
+        server->sendContent_P(PSTR("id('zinguo_warm1').setAttribute('class', 'btn-info');"));
     }
     if (!bitRead(controlOut, KEY_WARM_2 - 1))
     {
-        radioJs += F("id('zinguo_warm2').setAttribute('class', 'btn-info');");
+        server->sendContent_P(PSTR("id('zinguo_warm2').setAttribute('class', 'btn-info');"));
     }
     if (!bitRead(controlOut, KEY_BLOW - 1))
     {
-        radioJs += F("id('zinguo_blow').setAttribute('class', 'btn-info');");
+        server->sendContent_P(PSTR("id('zinguo_blow').setAttribute('class', 'btn-info');"));
     }
 
-    page += F("<form method='post' action='/zinguo_setting' onsubmit='postform(this);return false'>");
-    page += F("<table class='gridtable'><thead><tr><th colspan='2'>浴霸设置</th></tr></thead><tbody>");
-    page += F("<tr><td>电机数量</td><td>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='dual_motor' value='0'/><i class='bui-radios'></i> 单电机</label>&nbsp;&nbsp;&nbsp;&nbsp;");
-    page += F("<label class='bui-radios-label'><input type='radio' name='dual_motor' value='1'/><i class='bui-radios'></i> 双电机</label>");
-    page += F("</td></tr>");
-    radioJs += F("setRadioValue('dual_motor', '{v}');");
-    radioJs.replace(F("{v}"), config.dual_motor ? "1" : "0");
-
-    page += F("<tr><td>风暖数量</td><td>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='dual_warm' value='0'/><i class='bui-radios'></i> 单风暖</label>&nbsp;&nbsp;&nbsp;&nbsp;");
-    page += F("<label class='bui-radios-label'><input type='radio' name='dual_warm' value='1'/><i class='bui-radios'></i> 双风暖</label>");
-    page += F("</td></tr>");
-    radioJs += F("setRadioValue('dual_warm', '{v}');");
-    radioJs.replace(F("{v}"), config.dual_warm ? "1" : "0");
-
-    page += F("<tr><td>吹风联动</td><td>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='linkage' value='0'/><i class='bui-radios'></i> 不联动</label><br/>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='linkage' value='1'/><i class='bui-radios'></i> 暖1或暖2联动</label><br/>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='linkage' value='2'/><i class='bui-radios'></i> 暖1联动</label><br/>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='linkage' value='3'/><i class='bui-radios'></i> 暖2联动</label>");
-    page += F("</td></tr>");
-    radioJs += F("setRadioValue('linkage', '{v}');");
-    radioJs.replace(F("{v}"), String(config.linkage));
-
-    page += F("<tr><td>吹风延时</td><td><input type='number' min='0' max='90' name='delay_blow' required value='{delay_blow}'>&nbsp;秒</td></tr>");
-    page.replace(F("{delay_blow}"), config.delay_blow == 127 ? "0" : String(config.delay_blow));
-
-    page += F("<tr><td>过温保护</td><td><input type='number' min='15' max='45' name='max_temp' required value='{max_temp}'>&nbsp;度</td></tr>");
-    page.replace(F("{max_temp}"), String(config.max_temp));
-
-    page += F("<tr><td>取暖定时关闭</td><td><input type='number' min='1' max='90' name='close_warm' required value='{close_warm}'>&nbsp;分钟</td></tr>");
-    page.replace(F("{close_warm}"), String(config.close_warm));
-
-    page += F("<tr><td>换气定时关闭</td><td><input type='number' min='1' max='90' name='close_ventilation' required value='{close_ventilation}'>&nbsp;分钟</td></tr>");
-    page.replace(F("{close_ventilation}"), String(config.close_ventilation));
-
-    page += F("<tr><td>按键声音</td><td>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='beep' value='0'/><i class='bui-radios'></i> 关闭</label>&nbsp;&nbsp;&nbsp;&nbsp;");
-    page += F("<label class='bui-radios-label'><input type='radio' name='beep' value='1'/><i class='bui-radios'></i> 开启</label>");
-    page += F("</td></tr>");
-    radioJs += F("setRadioValue('beep', '{v}');");
-    radioJs.replace(F("{v}"), config.beep ? "1" : "0");
-
-    page += F("<tr><td>LED颜色</td><td>");
-    page += F("<label class='bui-radios-label'><input type='radio' name='reverse_led' value='0'/><i class='bui-radios'></i> 待机蓝色</label>&nbsp;&nbsp;&nbsp;&nbsp;");
-    page += F("<label class='bui-radios-label'><input type='radio' name='reverse_led' value='1'/><i class='bui-radios'></i> 待机红色</label>");
-    page += F("</td></tr>");
-    radioJs += F("setRadioValue('reverse_led', '{v}');");
-    radioJs.replace(F("{v}"), config.reverse_led ? "1" : "0");
-
-    page += F("<tr><td>主动上报间隔</td><td><input type='number' min='0' max='3600' name='report_interval' required value='{v}'>&nbsp;秒，0关闭</td></tr>");
-    page.replace(F("{v}"), String(config.report_interval));
-
-    page += F("<tr><td colspan='2'><button type='submit' class='btn-info'>设置</button><br>");
-    page += F("<button type='button' class='btn-success' style='margin-top:10px' onclick='window.location.href=\"/ha\"'>下载HA配置文件</button></td></tr>");
-    page += F("</tbody></table></form>");
-    radioJs += F("</script>");
-
-    server->sendContent(page);
-    server->sendContent(radioJs);
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("setRadioValue('dual_warm', '%d');"
+                    "setRadioValue('linkage', '%d');"
+                    "setRadioValue('beep', '%d');"
+                    "setRadioValue('reverse_led', '%d');"
+                    "setRadioValue('dual_motor', '%d');"
+                    "</script>"),
+               config.dual_warm ? 1 : 0,
+               config.linkage,
+               config.beep ? 1 : 0,
+               config.reverse_led ? 1 : 0,
+               config.dual_motor ? 1 : 0);
+    server->sendContent_P(tmpData);
 }
 
 void Zinguo::httpDo(ESP8266WebServer *server)
 {
     analysisKey(server->arg(F("key")).toInt());
 
-    server->send(200, F("text/html"), "{\"code\":1,\"msg\":\"操作成功\",\"data\":{" + httpGetStatus(server) + "}}");
+    server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server->send_P(200, PSTR("application/json"), PSTR("{\"code\":1,\"msg\":\"操作成功\",\"data\":{"));
+    server->sendContent(httpGetStatus(server));
+    server->sendContent_P(PSTR("}}"));
 }
 
 void Zinguo::httpSetting(ESP8266WebServer *server)
@@ -382,7 +411,7 @@ void Zinguo::httpSetting(ESP8266WebServer *server)
     config.reverse_led = server->arg(F("reverse_led")) == "1" ? true : false;
     config.report_interval = server->arg(F("report_interval")).toInt();
 
-    server->send(200, F("text/html"), F("{\"code\":1,\"msg\":\"已经设置。\"}"));
+    server->send_P(200, PSTR("application/json"), PSTR("{\"code\":1,\"msg\":\"已经设置。\"}"));
 }
 
 void Zinguo::httpHa(ESP8266WebServer *server)
@@ -392,37 +421,40 @@ void Zinguo::httpHa(ESP8266WebServer *server)
 
     server->setContentLength(CONTENT_LENGTH_UNKNOWN);
     server->sendHeader(F("Content-Disposition"), attachment);
-    server->send(200, F("Content-Type: application/octet-stream"), "");
+    server->send_P(200, PSTR("Content-Type: application/octet-stream"), "");
 
     String availability = Mqtt::getTeleTopic(F("availability"));
-    server->sendContent(F("light:\r\n"));
-    String tims[] = {"light", "ventilation", "close", "blow", "warm1", "warm2"};
+    server->sendContent_P(PSTR("light:\r\n"));
+    String tims[] = {F("light"), F("ventilation"), F("close"), F("blow"), F("warm1"), F("warm2")};
     for (size_t i = 0; i < (config.dual_warm ? 6 : 5); i++)
     {
         if (i == 1)
         {
-            server->sendContent(F("switch:\r\n"));
+            server->sendContent_P(PSTR("switch:\r\n"));
         }
-        server->sendContent(F("  - platform: mqtt\r\n    name: \""));
-        server->sendContent(UID);
-        server->sendContent(F("_"));
-        server->sendContent(tims[i]);
-        server->sendContent(F("\"\r\n    state_topic: \""));
-        server->sendContent(Mqtt::getStatTopic(tims[i]));
-        server->sendContent(F("\"\r\n    command_topic: \""));
-        server->sendContent(Mqtt::getCmndTopic(tims[i]));
-        server->sendContent(F("\"\r\n    payload_on: \"on\"\r\n    payload_off: \"off\"\r\n    availability_topic: \""));
-        server->sendContent(availability);
-        server->sendContent(F("\"\r\n    payload_available: \"online\"\r\n    payload_not_available: \"offline\"\r\n\r\n"));
+
+        snprintf_P(tmpData, sizeof(tmpData),
+                   PSTR("  - platform: mqtt\r\n"
+                        "    name: \"%s_%s\"\r\n"
+                        "    state_topic: \"%s\"\r\n"
+                        "    command_topic: \"%s\"\r\n"
+                        "    payload_on: \"on\"\r\n"
+                        "    payload_off: \"off\"\r\n"
+                        "    availability_topic: \"%s\"\r\n"
+                        "    payload_available: \"online\"\r\n"
+                        "    payload_not_available: \"offline\"\r\n\r\n"),
+                   UID, tims[i].c_str(), Mqtt::getStatTopic(tims[i]).c_str(), Mqtt::getCmndTopic(tims[i]).c_str(), availability.c_str());
+        server->sendContent_P(tmpData);
     }
 
-    server->sendContent(F("sensor:\r\n"));
-    server->sendContent(F("  - platform: mqtt\r\n    name: \""));
-    server->sendContent(UID);
-    server->sendContent(F("_temp"));
-    server->sendContent(F("\"\r\n    state_topic: \""));
-    server->sendContent(Mqtt::getStatTopic("temp").c_str());
-    server->sendContent(F("\"\r\n    unit_of_measurement: \"°C\"\r\n\r\n"));
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("sensor:\r\n"
+                    "  - platform: mqtt\r\n"
+                    "    name: \"%s_temp\"\r\n"
+                    "    state_topic: \"%s\"\r\n"
+                    "    unit_of_measurement: \"°C\"\r\n\r\n"),
+               UID, Mqtt::getStatTopic("temp").c_str());
+    server->sendContent_P(tmpData);
 }
 #pragma endregion
 
@@ -617,7 +649,7 @@ void Zinguo::convertTemp(void)
     if (abs(controlTemp - temp) > 0.5f)
     {
         controlTemp = temp; //输出温度值
-        Mqtt::publish(Mqtt::getStatTopic("temp"), String(temp).c_str(), globalConfig.mqtt.retain);
+        Mqtt::publish(Mqtt::getStatTopic(F("temp")), String(temp).c_str(), globalConfig.mqtt.retain);
 
         if (controlTemp >= config.max_temp)
         {
@@ -651,7 +683,7 @@ void Zinguo::switchLight(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("light"), isOn ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("light")), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 换气 Key2
@@ -675,7 +707,7 @@ void Zinguo::switchVentilation(bool isOn, bool isBeep)
                 {
                     beepBeep(2);
                 }
-                Mqtt::publish(Mqtt::getStatTopic("ventilation"), bitRead(controlOut, KEY_VENTILATION - 1) ? "on" : "off", globalConfig.mqtt.retain);
+                Mqtt::publish(Mqtt::getStatTopic(F("ventilation")), bitRead(controlOut, KEY_VENTILATION - 1) ? "on" : "off", globalConfig.mqtt.retain);
                 return;
             }
             switchBlowReal(false, false); // 单电机要关吹风
@@ -700,7 +732,7 @@ void Zinguo::switchVentilation(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("ventilation"), isOn ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("ventilation")), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 取暖1 Key8
@@ -748,7 +780,7 @@ void Zinguo::switchWarm1(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("warm1"), isOn ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("warm1")), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 取暖2 Key6
@@ -804,7 +836,7 @@ void Zinguo::switchWarm2(bool isOn, bool isBeep)
         return;
     }
 
-    Mqtt::publish(Mqtt::getStatTopic("warm2"), isOn ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("warm2")), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 // 吹风 Key7
@@ -835,7 +867,7 @@ void Zinguo::switchBlowReal(bool isOn, bool isBeep)
     {
         beepBeep(1);
     }
-    Mqtt::publish(Mqtt::getStatTopic("blow"), isOn ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("blow")), isOn ? "on" : "off", globalConfig.mqtt.retain);
 }
 
 void Zinguo::switchBlow(bool isOn, bool isBeep)
@@ -886,7 +918,7 @@ void Zinguo::switchCloseAll(bool isOn, bool isBeep)
     Mqtt::publish("cmnd/rsq/POWER", isOn ? "on" : "off", globalConfig.mqtt.retain);
 #else
     dispCtrl();
-    Mqtt::publish(Mqtt::getStatTopic("close"), isOn ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("close")), isOn ? "on" : "off", globalConfig.mqtt.retain);
     switchLight(false, false);
     switchVentilation(false, false);
     switchBlow(false, false);
@@ -901,10 +933,10 @@ void Zinguo::switchCloseAll(bool isOn, bool isBeep)
 
 void Zinguo::reportPower()
 {
-    Mqtt::publish(Mqtt::getStatTopic("temp"), String(controlTemp).c_str(), globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("light"), bitRead(controlOut, KEY_LIGHT - 1) ? "on" : "off", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("ventilation"), bitRead(controlOut, KEY_VENTILATION - 1) ? "on" : "off", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("warm1"), bitRead(controlOut, KEY_WARM_1 - 1) ? "on" : "off", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("warm2"), bitRead(controlOut, KEY_WARM_2 - 1) ? "on" : "off", globalConfig.mqtt.retain);
-    Mqtt::publish(Mqtt::getStatTopic("blow"), bitRead(controlOut, KEY_BLOW - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("temp")), String(controlTemp).c_str(), globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("light")), bitRead(controlOut, KEY_LIGHT - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("ventilation")), bitRead(controlOut, KEY_VENTILATION - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("warm1")), bitRead(controlOut, KEY_WARM_1 - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("warm2")), bitRead(controlOut, KEY_WARM_2 - 1) ? "on" : "off", globalConfig.mqtt.retain);
+    Mqtt::publish(Mqtt::getStatTopic(F("blow")), bitRead(controlOut, KEY_BLOW - 1) ? "on" : "off", globalConfig.mqtt.retain);
 }
