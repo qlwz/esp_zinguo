@@ -1,4 +1,7 @@
 #include "Zinguo.h"
+#ifdef USE_EXPAND
+#include "Rtc.h"
+#endif
 
 #pragma region 继承
 
@@ -14,10 +17,23 @@ void Zinguo::init()
     convertTemp();                  //初始化读取温度
     dispCtrl();                     //初始化输出端口
     schTicker = new Ticker();
+
+#ifdef USE_EXPAND
+    pinMode(LED_IO, OUTPUT); // LED
+    pinMode(BUTTON_IO, INPUT_PULLUP);
+    if (digitalRead(BUTTON_IO))
+    {
+        buttonStateFlag2 |= DEBOUNCED_STATE | UNSTABLE_STATE;
+    }
+    checkCanLed(true);
+#endif
 }
 
 void Zinguo::loop()
 {
+#ifdef USE_EXPAND
+    cheackButton();
+#endif
     dispCtrl();
     unsigned short key = getKey(); //获取键值
     if (key != 0x00)
@@ -104,6 +120,13 @@ void Zinguo::loop()
             switchWarm2(false);
         }
 
+#ifdef USE_EXPAND
+        if (perSecond % 60 == 0)
+        {
+            checkCanLed();
+        }
+#endif
+
         if (config.report_interval > 0 && (perSecond % config.report_interval) == 0)
         {
             reportPower();
@@ -122,6 +145,18 @@ void Zinguo::perSecondDo()
 void Zinguo::readConfig()
 {
     Config::moduleReadConfig(MODULE_CFG_VERSION, sizeof(ZinguoConfigMessage), ZinguoConfigMessage_fields, &config);
+
+#ifdef USE_EXPAND
+    if (config.led_light == 0)
+    {
+        config.led_light = 100;
+    }
+    if (config.led_time == 0)
+    {
+        config.led_time = 2;
+    }
+    ledLight = config.led_light * 10 + 23;
+#endif
 }
 
 void Zinguo::resetConfig()
@@ -136,6 +171,11 @@ void Zinguo::resetConfig()
     config.close_warm = 30;
     config.close_ventilation = 30;
     config.beep = true;
+
+#ifdef USE_EXPAND
+    config.led_light = 50;
+    config.led_time = 3;
+#endif
 }
 
 void Zinguo::saveConfig(bool isEverySecond)
@@ -343,6 +383,50 @@ void Zinguo::httpHtml(ESP8266WebServer *server)
                config.report_interval);
     server->sendContent_P(tmpData);
 
+#ifdef USE_EXPAND
+    server->sendContent_P(
+        PSTR("<tr><td>面板指示灯</td><td>"
+             "<label class='bui-radios-label'><input type='radio' name='led_type' value='0'/><i class='bui-radios'></i> 无</label>&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<label class='bui-radios-label'><input type='radio' name='led_type' value='1'/><i class='bui-radios'></i> 普通</label>&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<label class='bui-radios-label'><input type='radio' name='led_type' value='2'/><i class='bui-radios'></i> 呼吸灯</label>&nbsp;&nbsp;&nbsp;&nbsp;"
+             //"<label class='bui-radios-label'><input type='radio' name='led_type' value='3'/><i class='bui-radios'></i> WS2812</label>"
+             "</td></tr>"));
+
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("<tr><td>指示灯亮度</td><td><input type='range' min='1' max='100' name='led_light' value='%d' onchange='ledLightRangOnChange(this)'/>&nbsp;<span>%d%</span></td></tr>"),
+               config.led_light, config.led_light);
+    server->sendContent_P(tmpData);
+
+    snprintf_P(tmpData, sizeof(tmpData),
+               PSTR("<tr><td>渐变时间</td><td><input type='number' name='relay_led_time' value='%d'>毫秒</td></tr>"),
+               config.led_time);
+    server->sendContent_P(tmpData);
+
+    String tmp = "";
+    for (uint8_t i = 0; i <= 23; i++)
+    {
+        tmp += F("<option value='{v1}'>{v}:00</option>");
+        tmp += F("<option value='{v2}'>{v}:30</option>");
+        tmp.replace(F("{v1}"), String(i * 100));
+        tmp.replace(F("{v2}"), String(i * 100 + 30));
+        tmp.replace(F("{v}"), i < 10 ? "0" + String(i) : String(i));
+    }
+
+    server->sendContent_P(
+        PSTR("<tr><td>指示灯时间段</td><td>"
+             "<select id='led_start' name='led_start'>"));
+
+    server->sendContent(tmp);
+
+    server->sendContent_P(
+        PSTR("</select>"
+             "&nbsp;&nbsp;到&nbsp;&nbsp;"
+             "<select id='led_end' name='led_end'>"));
+    server->sendContent(tmp);
+    server->sendContent_P(PSTR("</select>"));
+    server->sendContent_P(PSTR("</td></tr>"));
+#endif
+
     server->sendContent_P(
         PSTR("<tr><td colspan='2'><button type='submit' class='btn-info'>设置</button><br>"
              "<button type='button' class='btn-success' style='margin-top:10px' onclick='window.location.href=\"/ha\"'>下载HA配置文件</button></td></tr>"
@@ -372,6 +456,13 @@ void Zinguo::httpHtml(ESP8266WebServer *server)
     {
         server->sendContent_P(PSTR("id('zinguo_blow').setAttribute('class', 'btn-info');"));
     }
+
+#ifdef USE_EXPAND
+    snprintf_P(tmpData, sizeof(tmpData), PSTR("setRadioValue('led_type', '%d');id('led_start').value=%d;id('led_end').value=%d;"),
+               config.led_type, config.led_start, config.led_end);
+    server->sendContent_P(tmpData);
+    server->sendContent_P(PSTR("function ledLightRangOnChange(the){the.nextSibling.nextSibling.innerHTML=the.value+'%'};"));
+#endif
 
     snprintf_P(tmpData, sizeof(tmpData),
                PSTR("setRadioValue('dual_warm', '%d');"
@@ -410,6 +501,34 @@ void Zinguo::httpSetting(ESP8266WebServer *server)
     config.beep = server->arg(F("beep")) == "1" ? true : false;
     config.reverse_led = server->arg(F("reverse_led")) == "1" ? true : false;
     config.report_interval = server->arg(F("report_interval")).toInt();
+
+#ifdef USE_EXPAND
+    if (server->hasArg(F("led_type")))
+    {
+        config.led_type = server->arg(F("led_type")).toInt();
+    }
+
+    if (server->hasArg(F("led_start")) && server->hasArg(F("led_end")))
+    {
+        config.led_start = server->arg(F("led_start")).toInt();
+        config.led_end = server->arg(F("led_end")).toInt();
+    }
+
+    if (server->hasArg(F("led_light")))
+    {
+        config.led_light = server->arg(F("led_light")).toInt();
+        ledLight = config.led_light * 10 + 23;
+    }
+    if (server->hasArg(F("relay_led_time")))
+    {
+        config.led_time = server->arg(F("relay_led_time")).toInt();
+        if (config.led_type == 2 && ledTicker.active())
+        {
+            ledTicker.detach();
+        }
+    }
+    checkCanLed(true);
+#endif
 
     server->send_P(200, PSTR("application/json"), PSTR("{\"code\":1,\"msg\":\"已经设置。\"}"));
 }
@@ -684,6 +803,12 @@ void Zinguo::switchLight(bool isOn, bool isBeep)
         beepBeep(1);
     }
     Mqtt::publish(Mqtt::getStatTopic(F("light")), isOn ? "on" : "off", globalConfig.mqtt.retain);
+#ifdef USE_EXPAND
+    if (Zinguo::canLed)
+    {
+        led(isOn);
+    }
+#endif
 }
 
 // 换气 Key2
@@ -940,3 +1065,160 @@ void Zinguo::reportPower()
     Mqtt::publish(Mqtt::getStatTopic(F("warm2")), bitRead(controlOut, KEY_WARM_2 - 1) ? "on" : "off", globalConfig.mqtt.retain);
     Mqtt::publish(Mqtt::getStatTopic(F("blow")), bitRead(controlOut, KEY_BLOW - 1) ? "on" : "off", globalConfig.mqtt.retain);
 }
+
+#ifdef USE_EXPAND
+
+void Zinguo::cheackButton()
+{
+    bool currentState = digitalRead(BUTTON_IO);
+    if (currentState != ((buttonStateFlag2 & UNSTABLE_STATE) != 0))
+    {
+        buttonTimingStart2 = millis();
+        buttonStateFlag2 ^= UNSTABLE_STATE;
+    }
+    else if (millis() - buttonTimingStart2 >= BUTTON_DEBOUNCE_TIME)
+    {
+        if (currentState != ((buttonStateFlag2 & DEBOUNCED_STATE) != 0))
+        {
+            buttonTimingStart2 = millis();
+            buttonStateFlag2 ^= DEBOUNCED_STATE;
+
+            switchCount2 += 1;
+            buttonIntervalStart2 = millis();
+
+            if (!currentState)
+            {
+                if (!bitRead(controlOut, KEY_LIGHT - 1))
+                {
+                    switchLight(true);
+                }
+                else
+                {
+                    last2 = 1;
+                }
+            }
+            else
+            {
+                if (last2 == 1)
+                {
+                    switchLight(false);
+                    last2 = 0;
+                }
+            }
+        }
+    }
+
+    // 如果经过的时间大于超时并且计数大于0，则填充并重置计数
+    if (switchCount2 > 0 && (millis() - buttonIntervalStart2) > specialFunctionTimeout2)
+    {
+        Led::led(200);
+        Debug::AddInfo(PSTR("switchCount: %d"), switchCount2);
+        if (switchCount2 == 20)
+        {
+            Wifi::setupWifiManager(false);
+        }
+        switchCount2 = 0;
+    }
+}
+
+#pragma region Led
+
+void Zinguo::ledTickerHandle()
+{
+    if (!bitRead(controlOut, KEY_LIGHT - 1))
+    {
+        analogWrite(LED_IO, ledLevel);
+    }
+    if (ledUp)
+    {
+        ledLevel++;
+        if (ledLevel >= ledLight)
+        {
+            ledUp = false;
+        }
+    }
+    else
+    {
+        ledLevel--;
+        if (ledLevel <= 50)
+        {
+            ledUp = true;
+        }
+    }
+}
+
+void Zinguo::ledPWM(bool isOn)
+{
+    if (isOn)
+    {
+        analogWrite(LED_IO, 0);
+        if (ledTicker.active())
+        {
+            ledTicker.detach();
+            Debug::AddInfo(PSTR("ledTicker detach"));
+        }
+    }
+    else
+    {
+        if (!ledTicker.active())
+        {
+            ledTicker.attach_ms(config.led_time, []() { ((Zinguo *)module)->ledTickerHandle(); });
+            Debug::AddInfo(PSTR("ledTicker active"));
+        }
+    }
+}
+
+void Zinguo::led(bool isOn)
+{
+    if (config.led_type == 0)
+    {
+        return;
+    }
+
+    if (config.led_type == 1)
+    {
+        analogWrite(LED_IO, isOn ? 0 : ledLight);
+    }
+    else if (config.led_type == 2)
+    {
+        ledPWM(isOn);
+    }
+}
+
+bool Zinguo::checkCanLed(bool re)
+{
+    bool result;
+    if (config.led_start != config.led_end && Rtc::rtcTime.valid)
+    {
+        uint16_t nowTime = Rtc::rtcTime.hour * 100 + Rtc::rtcTime.minute;
+        if (config.led_start > config.led_end) // 开始时间大于结束时间 跨日
+        {
+            result = (nowTime >= config.led_start || nowTime < config.led_end);
+        }
+        else
+        {
+            result = (nowTime >= config.led_start && nowTime < config.led_end);
+        }
+    }
+    else
+    {
+        result = true; // 没有正确时间为一直亮
+    }
+    if (result != Zinguo::canLed || re)
+    {
+        if ((!result || config.led_type != 2) && ledTicker.active())
+        {
+            ledTicker.detach();
+            Debug::AddInfo(PSTR("ledTicker detach2"));
+        }
+        Zinguo::canLed = result;
+        Debug::AddInfo(result ? PSTR("led can light") : PSTR("led can not light"));
+
+        result &&config.led_type != 0 ? led(bitRead(controlOut, KEY_LIGHT - 1)) : analogWrite(LED_IO, 0);
+    }
+
+    return result;
+}
+#pragma endregion
+
+#endif

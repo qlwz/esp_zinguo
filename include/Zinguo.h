@@ -29,6 +29,14 @@
 #define KEY_BLOW 7        // 吹风,Q
 #define KEY_WARM_1 8      // 取暖1,R
 
+#ifdef USE_EXPAND
+static const uint8_t DEBOUNCED_STATE = 0b00000001;
+static const uint8_t UNSTABLE_STATE = 0b00000010;
+static const uint8_t BUTTON_DEBOUNCE_TIME = 50; // 消抖时间
+#define BUTTON_IO 0
+#define LED_IO 3
+#endif
+
 class Zinguo : public Module
 {
 private:
@@ -113,5 +121,29 @@ public:
     void httpAdd(ESP8266WebServer *server);
     void httpHtml(ESP8266WebServer *server);
     String httpGetStatus(ESP8266WebServer *server);
+
+#ifdef USE_EXPAND
+    // 按键
+    // 等待开关再次切换的时间（以毫秒为单位）。
+    // 300对我来说效果很好，几乎没有引起注意。 如果您不想使用此功能，请设置为0。
+    uint16_t specialFunctionTimeout2 = 300;
+    unsigned long buttonTimingStart2;
+    unsigned long buttonIntervalStart2;
+    uint8_t buttonStateFlag2;
+    uint8_t switchCount2;
+    uint8_t last2;
+    void cheackButton();
+
+    // PWM
+    Ticker ledTicker;
+    uint16_t ledLevel = 0;
+    uint16_t ledLight = 1023;
+    bool ledUp = true;
+    bool canLed = true;
+    void led(bool isOn);
+    void ledPWM(bool isOn);
+    void ledTickerHandle();
+    bool checkCanLed(bool re = false);
+#endif
 };
 #endif
