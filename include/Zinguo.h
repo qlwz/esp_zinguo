@@ -39,7 +39,7 @@ static const uint8_t BUTTON_DEBOUNCE_TIME = 50; // 消抖时间
 
 class Zinguo : public Module
 {
-private:
+public:
     ZinguoConfigMessage config;
     //数码管0~9,Fix For New
     const unsigned char DigitNUM[10] = {0x81, 0x9F, 0xA2, 0x92, 0x9C, 0xD0, 0xC0, 0x9B, 0x80, 0x90};
@@ -99,7 +99,7 @@ private:
 
     void reportPower();
 
-public:
+//public:
     void init();
     String getModuleName() { return F("zinguo"); }
     String getModuleCNName() { return F("峥果浴霸"); }

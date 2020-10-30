@@ -2,6 +2,9 @@
 #ifdef USE_EXPAND
 #include "Rtc.h"
 #endif
+#ifdef USE_HOMEKIT
+#include "HomeKit.h"
+#endif
 
 #pragma region 继承
 
@@ -297,6 +300,9 @@ void Zinguo::httpAdd(ESP8266WebServer *server)
     server->on(F("/zinguo_setting"), std::bind(&Zinguo::httpSetting, this, server));
     server->on(F("/zinguo_do"), std::bind(&Zinguo::httpDo, this, server));
     server->on(F("/ha"), std::bind(&Zinguo::httpHa, this, server));
+#ifdef USE_HOMEKIT
+    server->on(F("/homekit"), std::bind(&homekit_http, server));
+#endif
 }
 
 String Zinguo::httpGetStatus(ESP8266WebServer *server)
@@ -431,6 +437,10 @@ void Zinguo::httpHtml(ESP8266WebServer *server)
         PSTR("<tr><td colspan='2'><button type='submit' class='btn-info'>设置</button><br>"
              "<button type='button' class='btn-success' style='margin-top:10px' onclick='window.location.href=\"/ha\"'>下载HA配置文件</button></td></tr>"
              "</tbody></table></form>"));
+
+#ifdef USE_HOMEKIT
+    homekit_html(server);
+#endif
 
     server->sendContent_P(
         PSTR("<script type='text/javascript'>"
