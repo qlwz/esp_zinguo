@@ -120,7 +120,10 @@ void Zinguo::loop()
             Log::Info(PSTR("Warm Timeout %d %d"), warmTime, perSecond);
             warmTime = 0;
             switchWarm1(false);
-            switchWarm2(false);
+            if (config.dual_warm)
+            {
+                switchWarm2(false);
+            }
         }
 
 #ifdef USE_EXPAND
@@ -235,7 +238,10 @@ void Zinguo::mqttCallback(char *topic, char *payload, char *cmnd)
         if (controlTemp >= config.max_temp)
         {
             switchWarm1(false);
-            switchWarm2(false);
+            if (config.dual_warm)
+            {
+                switchWarm2(false);
+            }
         }
     }
     else if (strcmp(cmnd, "report") == 0)
@@ -795,7 +801,10 @@ void Zinguo::convertTemp(void)
         if (controlTemp >= config.max_temp)
         {
             switchWarm1(false);
-            switchWarm2(false);
+            if (config.dual_warm)
+            {
+                switchWarm2(false);
+            }
         }
     }
 }
@@ -909,7 +918,7 @@ void Zinguo::switchWarm1(bool isOn, bool isBeep)
         controlPin &= ~(1 << 5);
         controlLED &= ~(1 << 3);
         controlOut &= ~(1 << 7);
-        if ((config.linkage == 1 && !bitRead(controlOut, KEY_WARM_2 - 1)) || config.linkage == 2)
+        if ((config.linkage == 1 && (!config.dual_warm || !bitRead(controlOut, KEY_WARM_2 - 1))) || config.linkage == 2)
         {
             closeBlowTime = config.delay_blow;
             if (closeBlowTime == 127)
@@ -917,7 +926,7 @@ void Zinguo::switchWarm1(bool isOn, bool isBeep)
                 switchBlow(false);
             }
         }
-        if (!bitRead(controlOut, KEY_WARM_2 - 1))
+        if (!config.dual_warm || !bitRead(controlOut, KEY_WARM_2 - 1))
         {
             warmTime = 0;
         }
@@ -939,48 +948,47 @@ void Zinguo::switchWarm2(bool isOn, bool isBeep)
     }
     if (isOn)
     {
-        if (config.linkage == 1 || config.linkage == 3) // 暖2联动
+        if (config.dual_warm)
         {
-            switchBlow(true, false);
+            if (config.linkage == 1 || config.linkage == 3) // 暖2联动
+            {
+                switchBlow(true, false);
+            }
+            closeBlowTime = 127;
+            if (warmTime == 0 && config.close_warm > 0)
+            {
+                warmTime = perSecond + (config.close_warm * 60); // 通过每秒定时器处理
+            }
         }
         controlPin |= (1 << 6);
         controlLED |= (1 << 5);
         controlOut |= (1 << 5);
-        closeBlowTime = 127;
-        if (warmTime == 0 && config.close_warm > 0)
-        {
-            warmTime = perSecond + (config.close_warm * 60); // 通过每秒定时器处理
-        }
     }
     else
     {
         controlPin &= ~(1 << 6);
         controlLED &= ~(1 << 5);
         controlOut &= ~(1 << 5);
-        if ((config.linkage == 1 && !bitRead(controlOut, KEY_WARM_1 - 1)) || config.linkage == 3)
+        if (config.dual_warm)
         {
-            closeBlowTime = config.delay_blow;
-            if (closeBlowTime == 127)
+            if ((config.linkage == 1 && !bitRead(controlOut, KEY_WARM_1 - 1)) || config.linkage == 3)
             {
-                switchBlow(false);
+                closeBlowTime = config.delay_blow;
+                if (closeBlowTime == 127)
+                {
+                    switchBlow(false);
+                }
             }
-        }
-        if (!bitRead(controlOut, KEY_WARM_1 - 1))
-        {
-            warmTime = 0;
+            if (!bitRead(controlOut, KEY_WARM_1 - 1))
+            {
+                warmTime = 0;
+            }
         }
     }
 
     if (isBeep && config.beep)
     {
         beepBeep(1);
-    }
-
-    // 单风暖的时候 控制风暖1
-    if (!config.dual_warm)
-    {
-        switchWarm1(isOn, false);
-        return;
     }
 
     Mqtt::publish(Mqtt::getStatTopic(F("warm2")), isOn ? "on" : "off", globalConfig.mqtt.retain);
@@ -1033,7 +1041,7 @@ void Zinguo::switchBlow(bool isOn, bool isBeep)
         {
             switchWarm1(false, false);
         }
-        if ((config.linkage == 1 || config.linkage == 3))
+        if (config.dual_warm && (config.linkage == 1 || config.linkage == 3))
         {
             switchWarm2(false, false);
         }
