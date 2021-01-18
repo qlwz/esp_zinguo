@@ -52,7 +52,7 @@ void Zinguo::loop()
             {
                 if (millis() >= (buttonTimingStart + buttonDebounceTime))
                 {
-                    Debug::AddInfo(PSTR("TouchKey: 0x%0X"), key);
+                    Log::Info(PSTR("TouchKey: 0x%0X"), key);
                     touchKey = key; //缓冲当前按键键值
                     analysisKey(touchKey);
                 }
@@ -69,7 +69,7 @@ void Zinguo::loop()
         buttonTiming = false;
         if (buttonAction == 2 && touchKey == 0x1000) // 执行长按动作
         {
-            Wifi::setupWifiManager(false);
+            WifiMgr::setupWifiManager(false);
         }
         touchKey = key;
         buttonAction = 0;
@@ -110,14 +110,14 @@ void Zinguo::loop()
 
         if (ventilationTime != 0 && ventilationTime <= perSecond)
         {
-            Debug::AddInfo(PSTR("Ventilation Timeout %d %d"), ventilationTime, perSecond);
+            Log::Info(PSTR("Ventilation Timeout %d %d"), ventilationTime, perSecond);
             ventilationTime = 0;
             switchVentilation(false);
         }
 
         if (warmTime != 0 && warmTime <= perSecond)
         {
-            Debug::AddInfo(PSTR("Warm Timeout %d %d"), warmTime, perSecond);
+            Log::Info(PSTR("Warm Timeout %d %d"), warmTime, perSecond);
             warmTime = 0;
             switchWarm1(false);
             switchWarm2(false);
@@ -164,7 +164,7 @@ void Zinguo::readConfig()
 
 void Zinguo::resetConfig()
 {
-    Debug::AddInfo(PSTR("moduleResetConfig . . . OK"));
+    Log::Info(PSTR("moduleResetConfig . . . OK"));
     memset(&config, 0, sizeof(ZinguoConfigMessage));
     config.dual_motor = true;
     config.dual_warm = true;
@@ -178,6 +178,18 @@ void Zinguo::resetConfig()
 #ifdef USE_EXPAND
     config.led_light = 50;
     config.led_time = 3;
+#endif
+
+#ifdef WIFI_SSID
+    config.dual_warm = false;
+
+    config.led_type = 2;
+    config.led_start = 1800;
+    config.led_end = 2300;
+
+    config.report_interval = 60 * 5;
+    globalConfig.mqtt.interval = 60 * 60;
+    globalConfig.debug.type = globalConfig.debug.type | 4;
 #endif
 }
 
@@ -266,7 +278,7 @@ void Zinguo::mqttDiscovery(bool isEnable)
                     Mqtt::getCmndTopic(tims[i]).c_str(),
                     Mqtt::getStatTopic(tims[i]).c_str(),
                     Mqtt::getTeleTopic(F("availability")).c_str());
-            //Debug::AddInfo(PSTR("discovery: %s - %s"), topic, message);
+            //Log::Info(PSTR("discovery: %s - %s"), topic, message);
             Mqtt::publish(topic, message, true);
         }
         else
@@ -279,7 +291,7 @@ void Zinguo::mqttDiscovery(bool isEnable)
     if (isEnable)
     {
         sprintf(message, PSTR("{\"name\":\"%s_temp\",\"stat_t\":\"%s\",\"unit_of_meas\":\"°C\"}"), UID, Mqtt::getStatTopic(F("temp")).c_str());
-        //Debug::AddInfo(PSTR("discovery: %s - %s"), topic, message);
+        //Log::Info(PSTR("discovery: %s - %s"), topic, message);
         Mqtt::publish(topic, message, true);
     }
     else
@@ -1122,10 +1134,10 @@ void Zinguo::cheackButton()
     if (switchCount2 > 0 && (millis() - buttonIntervalStart2) > specialFunctionTimeout2)
     {
         Led::led(200);
-        Debug::AddInfo(PSTR("switchCount: %d"), switchCount2);
+        Log::Info(PSTR("switchCount: %d"), switchCount2);
         if (switchCount2 == 20)
         {
-            Wifi::setupWifiManager(false);
+            WifiMgr::setupWifiManager(false);
         }
         switchCount2 = 0;
     }
@@ -1165,7 +1177,7 @@ void Zinguo::ledPWM(bool isOn)
         if (ledTicker.active())
         {
             ledTicker.detach();
-            Debug::AddInfo(PSTR("ledTicker detach"));
+            // Log::Info(PSTR("ledTicker detach"));
         }
     }
     else
@@ -1173,7 +1185,7 @@ void Zinguo::ledPWM(bool isOn)
         if (!ledTicker.active())
         {
             ledTicker.attach_ms(config.led_time, []() { ((Zinguo *)module)->ledTickerHandle(); });
-            Debug::AddInfo(PSTR("ledTicker active"));
+            // Log::Info(PSTR("ledTicker active"));
         }
     }
 }
@@ -1219,10 +1231,10 @@ bool Zinguo::checkCanLed(bool re)
         if ((!result || config.led_type != 2) && ledTicker.active())
         {
             ledTicker.detach();
-            Debug::AddInfo(PSTR("ledTicker detach2"));
+            // Log::Info(PSTR("ledTicker detach2"));
         }
         Zinguo::canLed = result;
-        Debug::AddInfo(result ? PSTR("led can light") : PSTR("led can not light"));
+        Log::Info(result ? PSTR("led can light") : PSTR("led can not light"));
 
         result &&config.led_type != 0 ? led(bitRead(controlOut, KEY_LIGHT - 1)) : analogWrite(LED_IO, 0);
     }
