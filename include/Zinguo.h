@@ -45,7 +45,7 @@ public:
     const unsigned char DigitNUM[10] = {0x81, 0x9F, 0xA2, 0x92, 0x9C, 0xD0, 0xC0, 0x9B, 0x80, 0x90};
 
     // 按键
-    int buttonDebounceTime = 50;
+    int buttonDebounceTime = 120;
     int buttonLongPressTime = 5000; // 2000 = 2s
     bool buttonTiming = false;
     unsigned long buttonTimingStart = 0;
