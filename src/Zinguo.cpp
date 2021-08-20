@@ -204,31 +204,37 @@ void Zinguo::saveConfig(bool isEverySecond)
 
 #pragma region MQTT
 
-void Zinguo::mqttCallback(char *topic, char *payload, char *cmnd)
+bool Zinguo::mqttCallback(char *topic, char *payload, char *cmnd)
 {
     if (strcmp(cmnd, "light") == 0)
     {
         switchLight(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_LIGHT - 1)));
+        return true;
     }
     else if (strcmp(cmnd, "ventilation") == 0)
     {
         switchVentilation(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
+        return true;
     }
     else if (strcmp(cmnd, "close") == 0)
     {
         switchCloseAll(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_VENTILATION - 1)));
+        return true;
     }
     else if (strcmp(cmnd, "warm2") == 0)
     {
         switchWarm2(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_WARM_2 - 1)));
+        return true;
     }
     else if (strcmp(cmnd, "blow") == 0)
     {
         switchBlow(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_BLOW - 1)));
+        return true;
     }
     else if (strcmp(cmnd, "warm1") == 0)
     {
         switchWarm1(strcmp(payload, "on") == 0 ? true : (strcmp(payload, "off") == 0 ? false : !bitRead(controlOut, KEY_WARM_1 - 1)));
+        return true;
     }
     else if (strcmp(cmnd, "temp") == 0)
     {
@@ -243,11 +249,14 @@ void Zinguo::mqttCallback(char *topic, char *payload, char *cmnd)
                 switchWarm2(false);
             }
         }
+        return true;
     }
     else if (strcmp(cmnd, "report") == 0)
     {
         reportPower();
+        return true;
     }
+    return false;
 }
 
 void Zinguo::mqttConnected()
@@ -640,7 +649,8 @@ void Zinguo::analysisKey(unsigned short code)
 void Zinguo::beepBeep(char i)
 {
     digitalWrite(PIN_BEEP, HIGH); //风铃器开启
-    schTicker->once_ms(70, []() { digitalWrite(PIN_BEEP, LOW); });
+    schTicker->once_ms(70, []()
+                       { digitalWrite(PIN_BEEP, LOW); });
 }
 
 void Zinguo::dispCtrl() //显示、控制数据的输出
@@ -1192,7 +1202,8 @@ void Zinguo::ledPWM(bool isOn)
     {
         if (!ledTicker.active())
         {
-            ledTicker.attach_ms(config.led_time, []() { ((Zinguo *)module)->ledTickerHandle(); });
+            ledTicker.attach_ms(config.led_time, []()
+                                { ((Zinguo *)module)->ledTickerHandle(); });
             // Log::Info(PSTR("ledTicker active"));
         }
     }

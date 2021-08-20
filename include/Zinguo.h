@@ -114,7 +114,7 @@ public:
     void resetConfig();
     void saveConfig(bool isEverySecond);
 
-    void mqttCallback(char *topic, char *payload, char *cmnd);
+    bool mqttCallback(char *topic, char *payload, char *cmnd);
     void mqttConnected();
     void mqttDiscovery(bool isEnable = true);
 
